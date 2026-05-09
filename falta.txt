@@ -1,0 +1,8 @@
+me falta
+generar reviso al cliente enviarlo automaticamente a whasa del cliente
+mejorar todo el sistema verificaciones validaciones y seguridad
+anadir ver las cuotas faltantes des ontar dinero ya mejorar el sistema de la caja 
+arreglar la caja no sirve el egreso arreglar el backend y el flutter
+tambien mejorar el sistema de login 
+quitar todos los id que se ven que no pueden ser visto quitar comentarios
+mejorar en si todo el sistema tamnbien clasificarlos por paises etc etc y mas cosas que se ocurrar

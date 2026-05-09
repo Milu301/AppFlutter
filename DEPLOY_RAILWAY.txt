@@ -1,0 +1,278 @@
+================================================================
+  COBROSAPP — GUÍA DE DESPLIEGUE EN RAILWAY
+  Fecha: 2026-04
+================================================================
+
+Esta guía cubre:
+  1. Base de datos PostgreSQL en Railway
+  2. Backend Node.js en Railway
+  3. Admin Web (React) en Railway
+  4. Variables de entorno necesarias
+  5. Primer arranque y migraciones
+  6. APK Flutter (vendor)
+
+================================================================
+PASO 1 — CREAR CUENTA EN RAILWAY
+================================================================
+
+1. Ve a https://railway.app y crea una cuenta (o inicia sesión).
+2. Crea un nuevo proyecto: "New Project" → "Empty Project".
+3. Dale un nombre, por ejemplo: cobrosapp-prod.
+
+================================================================
+PASO 2 — BASE DE DATOS POSTGRESQL
+================================================================
+
+1. Dentro del proyecto en Railway:
+   → Add Service → Database → PostgreSQL
+2. Railway crea la BD automáticamente.
+3. Haz clic en el servicio PostgreSQL → pestaña "Variables".
+   Copia los valores de:
+     DATABASE_URL  (formato: postgresql://user:pass@host:port/dbname)
+
+4. También puedes conectarte con un cliente SQL (DBeaver, TablePlus)
+   usando las variables HOST, PORT, DATABASE, USER, PASSWORD que
+   aparecen en la pestaña "Connect".
+
+EJECUTAR MIGRACIONES:
+─────────────────────
+Conéctate a la BD y ejecuta los siguientes archivos SQL
+en este orden exacto:
+
+  database/migrations/001_extensions.sql
+  database/migrations/002_tables.sql
+  database/migrations/003_indexes_triggers.sql
+  database/migrations/003_cash_deleted_at.sql
+  database/migrations/20251215_000006_credits_installments_payments.sql
+  database/migrations/20251215_000007_vendor_locations.sql
+  database/migrations/20251215_000008_fix_credits_term_count.sql
+  database/migrations/20251215_000009_fix_credits_balance_amount.sql
+  database/migrations/20251215_000010_fix_installments_legacy_cols.sql
+  database/migrations/20260108_000011_add_credits_currency_code.sql
+  database/migrations/20260108_000011_auth_token_version.sql
+  database/migrations/20260108_000012_vendor_default_permissions.sql
+  database/migrations/20260330_000013_fix_installments_status_paid_late.sql
+
+Luego ejecuta el seed del admin inicial:
+  database/seed/001_seed_admin.sql
+
+  IMPORTANTE: El seed crea el usuario admin por defecto.
+  Edita ese archivo ANTES de ejecutarlo para cambiar
+  el email y la contraseña del administrador.
+
+================================================================
+PASO 3 — BACKEND NODE.JS
+================================================================
+
+OPCIÓN A — Desde GitHub (recomendado):
+────────────────────────────────────
+1. Sube la carpeta `cobrosapp-backend` a un repositorio GitHub.
+2. En Railway → Add Service → GitHub Repo → selecciona el repo.
+3. Railway detecta automáticamente que es Node.js.
+4. En la pestaña "Settings" del servicio:
+   - Root Directory: / (o la subcarpeta si subiste todo el proyecto)
+   - Build Command: npm install
+   - Start Command: node src/server.js
+
+OPCIÓN B — Desde la CLI de Railway:
+────────────────────────────────────
+1. Instala la CLI: npm install -g @railway/cli
+2. Desde la carpeta cobrosapp-backend:
+   railway login
+   railway link   (selecciona tu proyecto)
+   railway up
+
+VARIABLES DE ENTORNO DEL BACKEND:
+──────────────────────────────────
+Ve al servicio backend → pestaña "Variables" → añade:
+
+  DATABASE_URL        = (la URL de PostgreSQL copiada en el paso 2)
+  JWT_SECRET          = (una cadena aleatoria larga, mín. 64 chars)
+                        Puedes generar una con:
+                        node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
+  NODE_ENV            = production
+  PORT                = 3000
+  APP_TIMEZONE        = America/Bogota   (o tu zona: America/Mexico_City, etc.)
+  CORS_ORIGINS        = https://tu-admin-web.up.railway.app,https://tu-otro-dominio.com
+                        (separados por coma; usa * solo para desarrollo)
+  RATE_LIMIT_MAX      = 100
+  RATE_LIMIT_WINDOW_MS= 900000
+
+IMPORTANTE: Railway asigna automáticamente la variable PORT.
+El servidor ya usa process.env.PORT con fallback a 3000.
+
+DOMINIO DEL BACKEND:
+────────────────────
+En Railway → servicio backend → Settings → Networking:
+  → Generate Domain
+  Obtendrás algo como: cobrosapp-backend.up.railway.app
+
+Anota esta URL. La necesitarás para:
+  - Configurar VITE_API_URL en el admin web
+  - Configurar la URL del API en la app Flutter
+
+================================================================
+PASO 4 — ADMIN WEB (React + Vite)
+================================================================
+
+OPCIÓN A — Desde GitHub (recomendado):
+────────────────────────────────────
+1. Sube la carpeta `admin-web` a un repositorio GitHub
+   (puede ser el mismo repo que el backend, en subcarpeta).
+2. En Railway → Add Service → GitHub Repo.
+3. En Settings:
+   - Root Directory: admin-web
+   - Build Command: npm install && npm run build
+   - Start Command: npx serve dist -l $PORT --single
+
+   (O usa el preset Static Site si Railway lo ofrece)
+
+OPCIÓN B — Deploy estático (Netlify/Vercel también sirven):
+────────────────────────────────────
+1. Desde la carpeta admin-web:
+   npm install
+   npm run build
+2. Sube la carpeta `dist` generada a cualquier hosting estático.
+
+VARIABLES DE ENTORNO DEL ADMIN WEB:
+────────────────────────────────────
+En Railway → servicio admin-web → Variables:
+
+  VITE_API_URL = https://cobrosapp-backend.up.railway.app/api
+                 (la URL del backend + /api)
+
+NOTA: Las variables VITE_* deben estar disponibles en BUILD TIME,
+no solo en runtime. En Railway, agrégalas antes del primer deploy
+o redespliega después de añadirlas.
+
+DOMINIO DEL ADMIN WEB:
+──────────────────────
+En Railway → servicio admin-web → Settings → Networking:
+  → Generate Domain
+  Obtendrás algo como: cobrosapp-admin.up.railway.app
+
+Añade este dominio a la variable CORS_ORIGINS del backend.
+
+================================================================
+PASO 5 — CONFIGURAR LA APP FLUTTER (APK Vendor)
+================================================================
+
+1. Abre el archivo:
+   flutter_app/lib/config/app_config.dart
+
+2. Cambia la URL base del API a la URL de Railway:
+   static const String apiBaseUrl = 'https://cobrosapp-backend.up.railway.app/api';
+
+3. Genera el APK:
+   cd flutter_app
+   flutter build apk --release
+
+4. El APK estará en:
+   flutter_app/build/app/outputs/flutter-apk/app-release.apk
+
+5. Distribuye el APK a tus vendedores por WhatsApp, email,
+   o súbelo a Google Drive.
+
+================================================================
+PASO 6 — VERIFICAR QUE TODO FUNCIONA
+================================================================
+
+CHECKLIST:
+  [ ] Backend responde: GET https://tu-backend.up.railway.app/api/health
+      Debe devolver: {"ok": true, "status": "healthy", ...}
+
+  [ ] Admin web carga en el navegador y permite login
+
+  [ ] APK del vendor puede hacer login con las credenciales
+      creadas desde el admin web
+
+  [ ] Puedes crear vendedores, clientes y créditos desde el admin web
+
+  [ ] El vendedor puede ver sus clientes, registrar pagos y
+      movimientos de caja
+
+================================================================
+PASO 7 — CREAR EL PRIMER ADMINISTRADOR
+================================================================
+
+Opción A — Usar el seed:
+  Edita database/seed/001_seed_admin.sql con tus datos y ejecútalo.
+
+Opción B — Insertar directamente en la BD:
+  1. Genera el hash de tu contraseña:
+     node -e "const b=require('bcrypt'); b.hash('TU_PASSWORD',12).then(console.log)"
+
+  2. Ejecuta en PostgreSQL:
+     INSERT INTO admins (email, password_hash, full_name, subscription_expires_at, status)
+     VALUES (
+       'admin@tuempresa.com',
+       '$2b$12$...HASH_GENERADO...',
+       'Administrador',
+       '2027-12-31 23:59:59+00',
+       'active'
+     );
+
+================================================================
+COSTOS ESTIMADOS EN RAILWAY (2026)
+================================================================
+
+  Plan Hobby: $5/mes
+    - Incluye $5 de créditos de uso
+    - PostgreSQL: ~$0 si usas menos de 1 GB
+    - Backend Node.js: ~$1-2/mes (uso bajo)
+    - Admin Web estático: ~$0.50/mes
+    - TOTAL ESTIMADO: $3-5/mes todo incluido
+
+  Para producción real con más tráfico:
+    Plan Pro: $20/mes con más recursos
+
+================================================================
+VARIABLES DE ENTORNO — RESUMEN COMPLETO
+================================================================
+
+BACKEND (cobrosapp-backend):
+  DATABASE_URL         REQUERIDA  postgresql://...
+  JWT_SECRET           REQUERIDA  string aleatorio 64+ chars
+  NODE_ENV             production
+  PORT                 3000 (Railway lo pone automáticamente)
+  APP_TIMEZONE         America/Bogota
+  CORS_ORIGINS         https://admin-web.up.railway.app
+  RATE_LIMIT_MAX       100
+  RATE_LIMIT_WINDOW_MS 900000
+
+ADMIN WEB (admin-web):
+  VITE_API_URL         https://backend.up.railway.app/api
+
+================================================================
+SOLUCIÓN DE PROBLEMAS COMUNES
+================================================================
+
+Error: "cannot connect to database"
+  → Verifica que DATABASE_URL esté correcta y que las migraciones
+    se ejecutaron sin errores.
+
+Error: "CORS policy" en el admin web
+  → Añade el dominio del admin web a CORS_ORIGINS en el backend
+    y redespliega el backend.
+
+Error: 401 en la app Flutter
+  → Verifica que la URL del API en app_config.dart termine en /api
+    y no tenga barra final.
+
+Error: "subscription_expires_at" en login
+  → El admin tiene la suscripción vencida. Actualiza la fecha:
+    UPDATE admins SET subscription_expires_at = '2027-12-31' WHERE email='tu@email.com';
+
+La app Flutter no conecta con Railway
+  → Verifica que la URL en app_config.dart use HTTPS (no HTTP).
+  → Railway siempre usa HTTPS en sus dominios .up.railway.app.
+
+================================================================
+CONTACTO Y SOPORTE
+================================================================
+
+Documentación Railway:   https://docs.railway.app
+Documentación Flutter:   https://docs.flutter.dev
+PostgreSQL Railway:      https://docs.railway.app/databases/postgresql
+
+================================================================

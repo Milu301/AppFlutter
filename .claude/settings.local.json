@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(cat \"f:/programa completo/cobrosapp-backend/database/\"*.sql)",
+      "Bash(grep -n \"Math.round.*Number.EPSILON\" \"/f/programa completo/cobrosapp-backend/src/features\"/**/*.js)",
+      "Bash(grep -n \"permTrue\\\\|permissions\\\\[\" \"/f/programa completo/cobrosapp-backend/src/features\"/**/*.js)",
+      "Bash(grep -n \"String\\(v.status.*toLowerCase\" \"/f/programa completo/cobrosapp-backend/src/features\"/**/*.js)",
+      "Bash(grep -n \"Math.min.*Math.max.*parseInt\" \"/f/programa completo/cobrosapp-backend/src/features\"/**/*.js)",
+      "Bash(grep -n \"vendorHasClientInAssignedRoute\\\\|vendorCanAccessClient\" \"/f/programa completo/cobrosapp-backend/src/features\"/**/*.js)",
+      "Bash(node -e \"require\\('./src/app'\\)\")",
+      "Bash(node -e ' *)",
+      "Bash(node --check src/utils/permissions.js)",
+      "Bash(node --check src/utils/vendor.js)",
+      "Bash(node --check src/utils/numeric.js)",
+      "Bash(node --check src/utils/date.js)",
+      "Bash(node --check src/features/credits/service.js)",
+      "Bash(node -e \"require\\('./src/app'\\); console.log\\('App OK'\\)\")",
+      "Bash(npm list *)",
+      "Bash(node --check \"f:/programa completo/admin-web/src/utils/formatters.js\")",
+      "Bash(node --check \"f:/programa completo/admin-web/src/components/Toast.jsx\")",
+      "Bash(git config *)",
+      "Bash(echo \"exit: $?\")"
+    ]
+  }
+}
